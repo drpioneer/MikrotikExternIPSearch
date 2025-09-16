@@ -1,6 +1,6 @@
 # external ip address search script (in case of double-nat)
 # tested on ROS 6.49.18 & 7.19.1
-# updated 2025/09/15
+# updated 2025/09/16
 
 :do {
   # search of interface-list gateway
@@ -18,11 +18,9 @@
 
   # external IP address return function # https://forummikrotik.ru/viewtopic.php?p=65345#p65345
   :local ExtIP do={
-    :local addr {
-      {mode="http"; url="checkip.amazonaws.com"};
-      {mode="http"; url="icanhazip.com"};
-      {mode="http"; url="checkip.dyndns.org"};
-    }
+    :local addr {{mode="http"; url="checkip.amazonaws.com"};
+                 {mode="http"; url="icanhazip.com"};
+                 {mode="http"; url="checkip.dyndns.org"}}
 
     # function of cutting out unnecessary characters # https://forum.mikrotik.com/viewtopic.php?p=714396#p714396
     :local ConvSymb do={
@@ -46,6 +44,9 @@
     :return "Unknown"}
 
   :put "Start of external ip address search script on router: $[/system identity get name]"
-  :local currIP [$ExtIP]; :local currGW [$GwFinder]; 
-  :put "External IP: '$currIP'; Gateway: $currGW"
+  :local ifcWAN [$GwFinder]; # search gw interface
+  :put "Gateway interface: $ifcWAN"
+  :local currIP [/ip dhcp-client get [find interface=$ifcWAN] address]; :set $currIP [:pick $currIP 0 [:find $currIP "/"]]
+  :if ($currIP~"192.168." or $currIP~"10.") do={:put "External IP '$currIP' included in BOGON list"; :set $currIP [$ExtIP]}
+  :put "External IP: '$currIP'"
 }
