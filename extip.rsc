@@ -18,10 +18,6 @@
 
   # external IP address return function # https://forummikrotik.ru/viewtopic.php?p=65345#p65345
   :local ExtIP do={
-    :local addr {{mode="http"; url="checkip.amazonaws.com"};
-                 {mode="http"; url="icanhazip.com"};
-                 {mode="http"; url="checkip.dyndns.org"}}
-
     # function of cutting out unnecessary characters # https://forum.mikrotik.com/viewtopic.php?p=714396#p714396
     :local ConvSymb do={
       :if ([:typeof $1]!="str" or [:len $1]=0) do={:return ""}
@@ -32,6 +28,7 @@
         :set res ($res.$chr)}
       :return $res}
 
+    :local addr {{mode="http"; url="checkip.amazonaws.com"};{mode="http"; url="icanhazip.com"};{mode="http"; url="checkip.dyndns.org"}}
     :local resp ""
     :foreach payLoad in=$addr do={
       :put "Request data from '$($payLoad->"mode")://$($payLoad->"url")'";
@@ -43,10 +40,13 @@
       } else={:put "No response received"}}
     :return "Unknown"}
 
+  # main body
   :put "Start of external ip address search script on router: $[/system identity get name]"
   :local ifcWAN [$GwFinder]; # search gw interface
   :put "Gateway interface: $ifcWAN"
   :local currIP [/ip dhcp-client get [find interface=$ifcWAN] address]; :set $currIP [:pick $currIP 0 [:find $currIP "/"]]
-  :if ($currIP~"192.168." or $currIP~"10.") do={:put "External IP '$currIP' included in BOGON list"; :set $currIP [$ExtIP]}
+  :if ($currIP~"192.168([.](25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)){2}" or \
+    $currIP~"10([.](25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)){3}") do={
+      :put "IP '$currIP' is private"; :set $currIP [$ExtIP]}; # private adresses: 192.168.0.0/16 or 10.0.0.0/8
   :put "External IP: '$currIP'"
 }
