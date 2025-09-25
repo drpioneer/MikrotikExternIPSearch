@@ -1,6 +1,6 @@
 # external ip address search script (in case of double-nat)
-# tested on ROS 6.49.18 & 7.19.1
-# updated 2025/09/16
+# tested on ROS 6.49.19 & 7.19.3
+# updated 2025/09/25
 
 :do {
   # search of interface-list gateway
@@ -9,11 +9,12 @@
     :set routeISP "/ip route get $routeISP"; /interface
     :local routeGW {"[$routeISP vrf-interface]";"[$routeISP immediate-gw]";"[$routeISP gateway-status]"}
     :foreach ifLstMmb in=[list member find] do={
-      :local ifIfac [list member get $ifLstMmb interface]; :local ifList [list member get $ifLstMmb list]
+      :local ifIfac [list member get $ifLstMmb interface]
       :local brName ""; :do {:set brName [bridge port get [find interface=$ifIfac] bridge]} on-error={}
       :foreach answer in=$routeGW do={
         :local gw ""; :do {:set gw [:tostr [[:parse $answer]]]} on-error={}
-        :if ([:len $gw]>0 && $gw~$ifIfac or [:len $brName]>0 && $gw~$brName) do={:return $ifIfac}}}
+        :if ([:len $gw]>0 && $gw~$ifIfac) do={:return $ifIfac}
+        :if ([:len $brName]>0 && $gw~$brName) do={:return $brName}}}
     :return ""}
 
   # external IP address return function # https://forummikrotik.ru/viewtopic.php?p=65345#p65345
@@ -43,10 +44,11 @@
   # main body
   :put "Start of external ip address search script on router: $[/system identity get name]"
   :local ifcWAN [$GwFinder]; # search gw interface
-  :put "Gateway interface: $ifcWAN"
-  :local currIP [/ip dhcp-client get [find interface=$ifcWAN] address]; :set $currIP [:pick $currIP 0 [:find $currIP "/"]]
-  :if ($currIP~"192.168([.](25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)){2}" or \
-    $currIP~"10([.](25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)){3}") do={
-      :put "IP '$currIP' is private"; :set $currIP [$ExtIP]}; # private adresses: 192.168.0.0/16 or 10.0.0.0/8
-  :put "External IP: '$currIP'"
+  :if ([:len $ifcWAN]!=0) do={
+    :put "Gateway interface: '$ifcWAN'"
+    :local currIP [/ip dhcp-client get [find interface=$ifcWAN] address]; :set $currIP [:pick $currIP 0 [:find $currIP "/"]]
+    :if ($currIP~"192.168([.](25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)){2}" or \
+      $currIP~"10([.](25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)){3}") do={
+        :put "IP '$currIP' is private"; :set $currIP [$ExtIP]}; # private adresses: 192.168.0.0/16 or 10.0.0.0/8
+    :put "External IP: '$currIP'"} else={:put "External IPv4-address & gateway not found!"}
 }
