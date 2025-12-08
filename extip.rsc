@@ -1,6 +1,6 @@
 # external ip address search script (in case of double-nat)
-# tested on ROS 6.49.19 & 7.19.3
-# updated 2025/09/25
+# tested on ROS 6.49.19 & 7.20.4
+# updated 2025/12/08
 
 :do {
   # search of interface-list gateway
@@ -42,13 +42,17 @@
     :return "Unknown"}
 
   # main body
-  :put "Start of external ip address search script on router: $[/system identity get name]"
+  :put "Start of external ip address search script on router: '$[/system identity get name]'"
   :local ifcWAN [$GwFinder]; # search gw interface
   :if ([:len $ifcWAN]!=0) do={
-    :put "Gateway interface: '$ifcWAN'"
-    :local currIP [/ip dhcp-client get [find interface=$ifcWAN] address]; :set $currIP [:pick $currIP 0 [:find $currIP "/"]]
-    :if ($currIP~"192.168([.](25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)){2}" or \
-      $currIP~"10([.](25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)){3}") do={
-        :put "IP '$currIP' is private"; :set $currIP [$ExtIP]}; # private adresses: 192.168.0.0/16 or 10.0.0.0/8
+    :local remark ""; :local currIP ""
+    :do {:set remark [/interface get [find name=$ifcWAN] comment]} on-error={}
+    :do {:set currIP [/ip dhcp-client get [find interface=$ifcWAN] address]} on-error={}
+    :put "Gateway interface: '$ifcWAN' with comment: '$remark'"
+    :if ([:len $currIP]!=0) do={
+      :set $currIP [:pick $currIP 0 [:find $currIP "/"]]
+      :if ($currIP~"192.168([.](25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)){2}" or \
+        $currIP~"10([.](25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)){3}") do={
+          :put "IP '$currIP' is private"; :set $currIP [$ExtIP]}}; # private adresses: 192.168.0.0/16 or 10.0.0.0/8
     :put "External IP: '$currIP'"} else={:put "External IPv4-address & gateway not found!"}
 }
